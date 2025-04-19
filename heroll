@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Heroll - Batalha de Heróis</title>
+  <style>
+    body { font-family: sans-serif; background: #222; color: #fff; text-align: center; padding: 20px; }
+    .personagem { display: inline-block; margin: 10px; padding: 10px; border: 2px solid #555; border-radius: 10px; cursor: pointer; background: #333; }
+    .bloqueado { opacity: 0.4; cursor: not-allowed; }
+    .selecionado { border-color: yellow; }
+    #combate, #mensagemDesbloqueio { margin-top: 30px; display: none; }
+    button { padding: 10px 20px; font-size: 16px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Heroll: Batalha contra Orcs</h1>
+  <h2>Escolha seu Herói</h2>
+  <div id="selecionarPersonagem"></div>
+  <button onclick="iniciarBatalha()">Começar Batalha</button>
+
+  <div id="combate">
+    <h2>Combate</h2>
+    <p id="status"></p>
+    <button onclick="rolarDado()">Atacar</button>
+  </div>
+
+  <div id="mensagemDesbloqueio"></div>
+
+  <script>
+    const personagens = [
+      { nome: "Guerreira", vida: 100, ataque: 20, desbloqueado: true },
+      { nome: "Anão Guerreiro", vida: 120, ataque: 18, meta: "derrotar5" },
+      { nome: "Arqueira", vida: 80, ataque: 25, meta: "criticos3" },
+      { nome: "Feiticeira", vida: 90, ataque: 22, meta: "vida10" },
+      { nome: "Raposa Aventureira", vida: 70, ataque: 30, meta: "chefe" }
+    ];
+
+    const metas = {
+      derrotar5: false,
+      criticos3: false,
+      vida10: false,
+      chefe: false
+    };
+
+    let heroiSelecionado = null;
+    let vidaJogador, vidaOrc, orcsDerrotados = 0, criticosNaPartida = 0;
+
+    function salvarDesbloqueios() {
+      localStorage.setItem("desbloqueios", JSON.stringify(metas));
+    }
+
+    function carregarDesbloqueios() {
+      const dados = JSON.parse(localStorage.getItem("desbloqueios"));
+      if (dados) Object.assign(metas, dados);
+    }
+
+    function mostrarPersonagens() {
+      carregarDesbloqueios();
+      const container = document.getElementById("selecionarPersonagem");
+      container.innerHTML = "";
+      personagens.forEach((p, i) => {
+        const desbloqueado = !p.meta || metas[p.meta];
+        const div = document.createElement("div");
+        div.className = "personagem" + (desbloqueado ? "" : " bloqueado");
+        div.innerText = p.nome;
+        if (desbloqueado) {
+          div.onclick = () => selecionarPersonagem(i, div);
+        }
+        container.appendChild(div);
+      });
+    }
+
+    function selecionarPersonagem(index, elemento) {
+      heroiSelecionado = personagens[index];
+      document.querySelectorAll(".personagem").forEach(e => e.classList.remove("selecionado"));
+      elemento.classList.add("selecionado");
+    }
+
+    function iniciarBatalha() {
+      if (!heroiSelecionado) return alert("Selecione um personagem!");
+      vidaJogador = heroiSelecionado.vida;
+      vidaOrc = Math.floor(Math.random() * 40) + 60;
+      criticosNaPartida = 0;
+      orcsDerrotados = 0;
+      document.getElementById("combate").style.display = "block";
+      atualizarStatus();
+    }
+
+    function atualizarStatus() {
+      document.getElementById("status").innerText = `Sua Vida: ${vidaJogador} | Vida do Orc: ${vidaOrc}`;
+    }
+
+    function rolarDado() {
+      const rolagem = Math.floor(Math.random() * 6) + 1;
+      const dano = rolagem + Math.floor(Math.random() * heroiSelecionado.ataque);
+      vidaOrc -= dano;
+      if (rolagem === 6) criticosNaPartida++;
+
+      let mensagem = `Você rolou ${rolagem} e causou ${dano} de dano.`;
+
+      if (vidaOrc <= 0) {
+        orcsDerrotados++;
+        vidaOrc = Math.floor(Math.random() * 40) + 60;
+        mensagem += ` Você derrotou o orc! Outro apareceu.`;
+      } else {
+        const danoInimigo = Math.floor(Math.random() * 10) + 5;
+        vidaJogador -= danoInimigo;
+        mensagem += ` O orc revidou com ${danoInimigo} de dano.`;
+      }
+
+      atualizarStatus();
+      checarMetas();
+      if (vidaJogador <= 0) {
+        document.getElementById("status").innerText = mensagem + "\nVocê foi derrotado!";
+        document.getElementById("combate").style.display = "none";
+      } else {
+        document.getElementById("status").innerText = mensagem + `\nSua Vida: ${vidaJogador} | Vida do Orc: ${vidaOrc}`;
+      }
+    }
+
+    function checarMetas() {
+      let desbloqueou = [];
+      if (!metas.derrotar5 && orcsDerrotados >= 5) {
+        metas.derrotar5 = true;
+        desbloqueou.push("Anão Guerreiro");
+      }
+      if (!metas.criticos3 && criticosNaPartida >= 3) {
+        metas.criticos3 = true;
+        desbloqueou.push("Arqueira");
+      }
+      if (!metas.vida10 && vidaJogador <= 10 && vidaJogador > 0) {
+        metas.vida10 = true;
+        desbloqueou.push("Feiticeira");
+      }
+      if (!metas.chefe && orcsDerrotados >= 10) {
+        metas.chefe = true;
+        desbloqueou.push("Raposa Aventureira");
+      }
+
+      if (desbloqueou.length > 0) {
+        salvarDesbloqueios();
+        document.getElementById("mensagemDesbloqueio").style.display = "block";
+        document.getElementById("mensagemDesbloqueio").innerText = "Personagens desbloqueados: " + desbloqueou.join(", ");
+        mostrarPersonagens();
+      }
+    }
+
+    mostrarPersonagens();
+  </script>
+</body>
+</html>
